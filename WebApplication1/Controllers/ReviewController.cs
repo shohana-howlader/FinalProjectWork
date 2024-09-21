@@ -13,11 +13,16 @@ namespace WebApplication1.Controllers
     public class ReviewController : ControllerBase
     {
         private readonly TravelDBContext _context;
+        private readonly UserManager<ApplicationUser> _userManager; // Assuming you're using ASP.NET Identity
 
-        public ReviewController(TravelDBContext context)
+        public ReviewController(TravelDBContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
+
+        // GET: api/review/package/5
+        [HttpGet("package/{packageId}")]
         public IActionResult ReviewRating(int packageId)
         {
             var package = _context.Packages
@@ -27,24 +32,24 @@ namespace WebApplication1.Controllers
 
             if (package == null)
             {
-                return NotFound();
+                return NotFound(new { message = "Package not found" });
             }
 
-            return View(package);
+            return Ok(package);
         }
 
+        // POST: api/review/submit
         [Authorize]
-        [HttpPost]
+        [HttpPost("submit")]
         public IActionResult SubmitReview(int packageId, int rating, string comment)
         {
             var package = _context.Packages.FirstOrDefault(p => p.PackageID == packageId);
             if (package == null)
             {
-                return NotFound();
+                return NotFound(new { message = "Package not found" });
             }
 
             var userId = _userManager.GetUserId(User);
-
             var existingReview = _context.Reviews.FirstOrDefault(r => r.PackageId == packageId && r.UserId == userId);
 
             if (existingReview != null)
@@ -69,7 +74,7 @@ namespace WebApplication1.Controllers
 
             _context.SaveChanges();
 
-            return RedirectToAction("PackageDetails", new { Id = packageId });
+            return Ok(new { message = "Review submitted successfully" });
         }
 
 
