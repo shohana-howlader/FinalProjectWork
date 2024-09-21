@@ -38,6 +38,32 @@ namespace WebApplication1.Controllers
             return Ok(package);
         }
 
+
+        [HttpGet("Avgpackage/{packageId}")]
+        public IActionResult AvgReviewRating(int packageId)
+        {
+            var package = _context.Packages
+                .Include(p => p.Reviews)
+                .FirstOrDefault(p => p.PackageID == packageId);
+
+            if (package == null)
+            {
+                return NotFound(new { message = "Package not found" });
+            }
+
+            // Check if the package has reviews
+            if (package.Reviews == null || !package.Reviews.Any())
+            {
+                return Ok(new { message = "No reviews available", averageRating = 0 });
+            }
+
+            // Calculate the average rating
+            var avgRating = package.Reviews.Average(r => r.Rating);
+
+            return Ok(new { packageId = packageId, averageRating = avgRating });
+        }
+
+
         // POST: api/review/submit
         [Authorize]
         [HttpPost("submit")]
