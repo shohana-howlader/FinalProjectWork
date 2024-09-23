@@ -21,21 +21,19 @@ namespace WebApplication1.Controllers
             _userManager = userManager;
         }
 
-        // GET: api/review/package/5
         [HttpGet("package/{packageId}")]
         public IActionResult ReviewRating(int packageId)
         {
-            var package = _context.Packages
-                .Include(p => p.Reviews)
-                .ThenInclude(r => r.User)
-                .FirstOrDefault(p => p.PackageID == packageId);
+            var packageWithReviews = _context.Packages
+                .FromSqlRaw("EXEC GetPackageReviews @p0", packageId)
+                .ToList();
 
-            if (package == null)
+            if (!packageWithReviews.Any())
             {
                 return NotFound(new { message = "Package not found" });
             }
 
-            return Ok(package);
+            return Ok(packageWithReviews);
         }
 
 
@@ -64,41 +62,16 @@ namespace WebApplication1.Controllers
         }
 
 
-        // POST: api/review/submit
+
         [Authorize]
         [HttpPost("submit")]
         public IActionResult SubmitReview(int packageId, int rating, string comment)
         {
-            var package = _context.Packages.FirstOrDefault(p => p.PackageID == packageId);
-            if (package == null)
-            {
-                return NotFound(new { message = "Package not found" });
-            }
-
             var userId = _userManager.GetUserId(User);
-            var existingReview = _context.Reviews.FirstOrDefault(r => r.PackageId == packageId && r.UserId == userId);
 
-            if (existingReview != null)
-            {
-                existingReview.Rating = rating;
-                existingReview.Comment = comment;
-                existingReview.DatePosted = DateTime.Now;
-            }
-            else
-            {
-                var newReview = new Review
-                {
-                    PackageId = packageId,
-                    UserId = userId,
-                    Rating = rating,
-                    Comment = comment,
-                    DatePosted = DateTime.Now
-                };
-
-                _context.Reviews.Add(newReview);
-            }
-
-            _context.SaveChanges();
+            _context.Database.ExecuteSqlRaw(
+                "EXEC SubmitOrUpdateReview @p0, @p1, @p2, @p3",
+                packageId, userId, rating, comment);
 
             return Ok(new { message = "Review submitted successfully" });
         }

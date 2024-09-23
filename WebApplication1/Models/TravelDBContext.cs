@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using WebApplication1.Models.DTO;
 
 namespace WebApplication1.Models
 {
@@ -20,6 +21,7 @@ namespace WebApplication1.Models
         public virtual DbSet<State> States { get; set; }
         public virtual DbSet<Review> Reviews { get; set; }
         public virtual DbSet<ApplicationUser> ApplicationUsers { get; set; }
+      
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

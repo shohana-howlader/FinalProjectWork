@@ -41,52 +41,83 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<StateDTO>>> GetStates()
         {
-            var states = await _context.States.ToListAsync();
-            var stateDTOs = states.Select(s => MapToStateDTO(s)).ToList();
-            return stateDTOs;
+            var stateDTOs = await _context.States
+                .FromSqlRaw("EXEC GetStates")
+                .Select(s => new StateDTO
+                {
+                    StateID = s.StateID,
+                    StateName = s.StateName,
+                    CountryID = s.CountryID
+                })
+                .ToListAsync();
+
+            return Ok(stateDTOs);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<StateDTO>> GetState(int id)
         {
-            var state = await _context.States.FindAsync(id);
-            if (state == null) return NotFound();
-            return MapToStateDTO(state);
+            var state = await _context.States
+                .FromSqlRaw("EXEC GetStateById @p0", id)
+                .FirstOrDefaultAsync();
+
+            if (state == null)
+            {
+                return NotFound();
+            }
+
+            var stateDTO = new StateDTO
+            {
+                StateID = state.StateID,
+                StateName = state.StateName,
+                CountryID = state.CountryID
+            };
+
+            return Ok(stateDTO);
         }
+
 
         [HttpPost]
         public async Task<ActionResult<StateDTO>> CreateState(StateDTO stateDTO)
         {
-            var state = MapToStateEntity(stateDTO);
-            _context.States.Add(state);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetState), new { id = state.StateID }, MapToStateDTO(state));
+            await _context.Database.ExecuteSqlRawAsync(
+                "EXEC CreateState @p0, @p1",
+                stateDTO.StateName, stateDTO.CountryID);
+
+            // Optionally, fetch the new state if needed
+            return CreatedAtAction(nameof(GetState), new { id = stateDTO.StateID }, stateDTO);
         }
+
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateState(int id, StateDTO stateDTO)
         {
-            if (id != stateDTO.StateID) return BadRequest();
-            var state = await _context.States.FindAsync(id);
-            if (state == null) return NotFound();
+            if (id != stateDTO.StateID)
+            {
+                return BadRequest();
+            }
 
-            state.StateName = stateDTO.StateName;
-            state.CountryID = stateDTO.CountryID;
+            await _context.Database.ExecuteSqlRawAsync(
+                "EXEC UpdateState @p0, @p1, @p2",
+                id, stateDTO.StateName, stateDTO.CountryID);
 
-            _context.Entry(state).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
             return NoContent();
         }
+
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteState(int id)
         {
-            var state = await _context.States.FindAsync(id);
-            if (state == null) return NotFound();
-            _context.States.Remove(state);
-            await _context.SaveChangesAsync();
+            var result = await _context.Database.ExecuteSqlRawAsync("EXEC DeleteState @p0", id);
+
+            if (result == 0)
+            {
+                return NotFound();
+            }
+
             return NoContent();
         }
+
 
 
 
